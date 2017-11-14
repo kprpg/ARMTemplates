@@ -1,0 +1,124 @@
+﻿{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "server-1Name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "server-1AdminUserName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "server-1AdminPassword": {
+      "type": "securestring"
+    },
+    "server-1WindowsOSVersion": {
+      "type": "string",
+      "defaultValue": "2012-R2-Datacenter",
+      "allowedValues": [
+        "2008-R2-SP1",
+        "2012-Datacenter",
+        "2012-R2-Datacenter",
+        "Windows-Server-Technical-Preview"
+      ]
+    },
+    "storageAccountName": {
+      "type": "string"
+    },
+    "storageAccountLocation": {
+      "type": "string"
+    },
+    "storageAccountResourceGroup": {
+      "type": "string"
+    },
+    "virtualNetworkLocation": {
+      "type": "string"
+    },
+    "virtualNetworkResourceGroup": {
+      "type": "string"
+    }
+  },
+  "variables": {
+    "server-1ImagePublisher": "MicrosoftWindowsServer",
+    "server-1ImageOffer": "WindowsServer",
+    "server-1OSDiskName": "server-1OSDisk",
+    "server-1VmSize": "Standard_D2_v2",
+    "server-1VnetID": "[resourceId(parameters('virtualNetworkResourceGroup'), 'Microsoft.Network/virtualNetworks', 'myVnet')]",
+    "server-1SubnetRef": "[concat(variables('server-1VnetID'), '/subnets/', 'Subnet-1')]",
+    "server-1StorageAccountContainerName": "vhds",
+    "server-1NicName": "[concat(parameters('server-1Name'), 'NetworkInterface')]"
+  },
+  "resources": [
+    {
+      "name": "[variables('server-1NicName')]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "location": "[parameters('virtualNetworkLocation')]",
+      "apiVersion": "2016-03-30",
+      "dependsOn": [ ],
+      "tags": {
+        "displayName": "server-1Nic"
+      },
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[variables('server-1SubnetRef')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[parameters('server-1Name')]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "location": "[parameters('storageAccountLocation')]",
+      "apiVersion": "2015-06-15",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('server-1NicName'))]"
+      ],
+      "tags": {
+        "displayName": "server-1"
+      },
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('server-1VmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[parameters('server-1Name')]",
+          "adminUsername": "[parameters('server-1AdminUsername')]",
+          "adminPassword": "[parameters('server-1AdminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('server-1ImagePublisher')]",
+            "offer": "[variables('server-1ImageOffer')]",
+            "sku": "[parameters('server-1WindowsOSVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "name": "server-1OSDisk",
+            "vhd": {
+              "uri": "[concat(reference(resourceId(parameters('storageAccountResourceGroup'), 'Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2016-01-01').primaryEndpoints.blob, variables('server-1StorageAccountContainerName'), '/', variables('server-1OSDiskName'), '.vhd')]"
+            },
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('server-1NicName'))]"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "outputs": {
+  }
+}
